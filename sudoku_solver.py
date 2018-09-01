@@ -1,4 +1,5 @@
-import pdb
+from copy import deepcopy
+
 
 print '''
 + - - - - - - - - +
@@ -14,73 +15,111 @@ print '''
 + - - - - - - - - + '''
 
 
+ALL_NUMBERS_SET = {1, 2, 3, 4, 5, 6, 7, 8, 9}
+
+
 class SudokuContentBase:
-    pass
+
+    def __init__(self, question_list):
+        self.unfilled_entries_list = [False]*9
+        self.all_data_for_type_list_list = []
+        answer_list = deepcopy(question_list)
+        self.set_data(answer_list)
+
+    def set_data(self, question_list):
+        raise NotImplementedError("set_data method needs to be defined")
+
+    def update_counts(self, content_list):
+        for index, row in enumerate(content_list):
+            if row.count(0) == 0:
+                # Updates if line of sudoku type is yet to be filled
+                self.unfilled_entries_list[index] = True
+
 
 
 class SudokuRows(SudokuContentBase):
-    pass
+    def __init__(self, question_list):
+        SudokuContentBase.__init__(self, question_list)
+
+    def set_data(self, question_list):
+        # All rows are already arranged as necessary
+        self.all_data_for_type_list_list = question_list
+
+    @staticmethod
+    def get_sudoku_type():
+        return "rows"
 
 
 class SudokuColumns(SudokuContentBase):
-    pass
+    def __init__(self, question_list):
+        SudokuContentBase.__init__(self, question_list)
+
+    def set_data(self, question_list):
+        # construct a transpose of existing question list
+        self.all_data_for_type_list_list = map(list, zip(*question_list))
+
+    @staticmethod
+    def get_sudoku_type():
+        return "columns"
 
 
-class SudokuBox():
-    pass
+class SudokuBox(SudokuContentBase):
+    def __init__(self, question_list):
+        SudokuContentBase.__init__(self, question_list)
+
+    def set_data(self, question_list):
+        # construct a transpose of existing question list
+        temp = []
+        all_box = []
+        for row in range(0, 3):
+            for col in range(0, 3):
+                for i in range(0, 9):
+                    # Iterate through question list to construct a list containing content of a box
+                    temp.append(question_list[int(i / 3) + (row * 3)][i % 3 + (col * 3)])
+                all_box.append(temp)
+                temp = []
+        self.all_data_for_type_list_list = all_box
+
+    @staticmethod
+    def get_sudoku_type():
+        return "boxes"
 
 
-class Sudoku():
+class SudokuSolver:
     def __init__(self):
-        self.question_list = []
-        self.all_value_set_dict = {}
-    
-    def read_content_from_file(self):
+        self.answer_list = []
+
+
+    @staticmethod
+    def get_question_list():
+        question_list = list()
+        content_list = list()
+
         with open('question.txt', 'r') as fp:
             question_file_rows_list = fp.readlines()
-        return question_file_rows_list
-    
-    def get_question_content_in_list(self):
-        question_file_rows_list = self.read_content_from_file()
+            for question_file_rows in question_file_rows_list:
+                content_list.append(question_file_rows.split(','))
 
-        for question_file_rows in question_file_rows_list:
-            self.question_list.append(question_file_rows.split(','))
+            for row in content_list:
+                # Converting string to int
+                question_list.append([0 if not x.strip() else int(x) for x in row])
 
-    only_number_list = []
-    aa = []
-    all_numbers_set = set([1, 2, 3, 4, 5, 6, 7, 8, 9])
+        return question_list
 
-    def get_proper_list(self, content_list, list_type=None):
-        # pdb.set_trace()
-        for row in self.question_list:
-            content_list.append([0 if not x.strip() else int(x) for x in row])
-
-    def get_valid_counts(content_list, list_type):
-        for index, row in enumerate(content_list):
-            if row.count(0) == 0:
-                ALL_VALUE_SET_DICT[list_type][0][index] = 1
-    
-    
-    def set_counts():
-        get_valid_counts(all_rows, "rows")
-        get_valid_counts(all_cols, "cols")
-        get_valid_counts(all_box, "box")
-    
-    
-    def fill_the_only_missing_number(all_common_list, list_type):
-        (all_rows, all_cols, all_box) = ALL_VALUE_SET_DICT["rows"][1], ALL_VALUE_SET_DICT["cols"][1], \
-                                        ALL_VALUE_SET_DICT["box"][1]
-        for rindex, temp_list in enumerate(all_common_list):
-            if temp_list.count(0) == 1:
-                # pdb.set_trace()
+    def fill_the_only_missing_number(self, **kwargs):
+        for type_obj in kwargs.values():
+            if type_obj.all_data_for_type_list_list.count(0) == 1:
+                # Proceed further only if there is a entry with 0 in line
                 list_of_numbers = [val for val in temp_list if val]
                 value = list(all_numbers_set - set(list_of_numbers))[0]
                 cindex = temp_list.index(0)
                 set_values_in_all_lists(all_rows, all_cols, all_box, rindex, cindex, value, list_type)
+        type_obj.update_counts()
     
     
     def set_values_in_all_lists(all_rows, all_cols, all_box, rindex, cindex, value, list_type):
-        # pdb.set_trace()
+        # Updates each of the separate list if any one of the empty row has been correctly
+        # filled
         if list_type == "rows":
             index1, index2 = rindex, cindex
             all_box[int(rindex / 3) * 3 + int(cindex / 3)][(rindex % 3) * 3 + cindex % 3] = value
@@ -97,62 +136,47 @@ class Sudoku():
         all_cols[index2][index1] = value
         if list_type == "box":
             index1 = rindex
-        ALL_VALUE_SET_DICT[list_type][0][index1] = 1
-    
-    
-    def solve_sudoku():
-        while True:
-            if 0 not in ALL_VALUE_SET_DICT["rows"][0]:
-                break
-            for key in ALL_VALUE_SET_DICT.keys():
-                fill_the_only_missing_number(ALL_VALUE_SET_DICT[key][1], key)
-            set_counts()
+        self.all_values_set_dict[list_type][0][index1] = 1
+
+    def solve_sudoku(self, **kwargs):
+        # list_type = type_obj.get_sudoku_type()
+        self.fill_the_only_missing_number(**kwargs)
+
     
     
     def print_sudoku(content_list):
         for val in content_list:
             print val
         print "\n\n"
-    
-    
-    all_rows = only_number_list
-    print_sudoku(all_rows)
-    
-    all_cols = map(list, zip(*only_number_list))
-    print_sudoku(all_cols)
-    
-    # pdb.set_trace()
-    temp = []
-    all_box = []
-    for row in range(0, 3):
-        for col in range(0, 3):
-            for i in range(0, 9):
-                temp.append(only_number_list[int(i / 3) + (row * 3)][i % 3 + (col * 3)])
-            all_box.append(temp)
-            temp = []
+
+    @staticmethod
+    def get_have_all_lines_been_filled(type_obj):
+        return all(type_obj.unfilled_entries_list)
+
     
     print_sudoku(all_box)
-    
-    ALL_VALUE_SET_DICT = {
-        "rows": ([0, 0, 0, 0, 0, 0, 0, 0, 0], all_rows),
-        "cols": ([0, 0, 0, 0, 0, 0, 0, 0, 0], all_cols),
-        "box": ([0, 0, 0, 0, 0, 0, 0, 0, 0], all_box)
-    }
-    
-    # pdb.set_trace()
-    solve_sudoku()
-    print_sudoku(only_number_list)
-
+    # # pdb.set_trace()
+    # solve_sudoku()
+    # print_sudoku(only_number_list)
 
     def start(self):
-        self.get_question_content_in_list()
-        self.get_proper_list(only_number_list)
-        pass
+        question_list = self.get_question_list()
+        rows_obj = SudokuRows(question_list)
+        cols_obj = SudokuColumns(question_list)
+        box_obj = SudokuBox(question_list)
+        # self.sudoku_line_type_object_tuple = (rows_obj, cols_obj, box_obj)
+        while True:
+            # Can pass any object to this function, result is expected to be the same
+            # Passing row_obj here
+            all_lines_filled = self.get_have_all_lines_been_filled(rows_obj)
+            if all_lines_filled:
+                break
+            self.solve_sudoku(rows_obj=rows_obj, cols_obj=cols_obj, box_obj=box_obj)
 
 
 
 def main():
-    sudoku_obj = Sudoku()
+    sudoku_obj = SudokuSolver()
     sudoku_obj.start()
 
 
