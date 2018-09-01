@@ -1,4 +1,5 @@
 from copy import deepcopy
+from collections import namedtuple
 
 
 print '''
@@ -26,7 +27,7 @@ class SudokuContentBase:
         answer_list = deepcopy(question_list)
         self.set_data(answer_list)
 
-    def set_data(self, question_list):
+    def set_data(self, answer_list):
         raise NotImplementedError("set_data method needs to be defined")
 
     def update_counts(self, content_list):
@@ -36,14 +37,13 @@ class SudokuContentBase:
                 self.unfilled_entries_list[index] = True
 
 
-
 class SudokuRows(SudokuContentBase):
     def __init__(self, question_list):
         SudokuContentBase.__init__(self, question_list)
 
-    def set_data(self, question_list):
+    def set_data(self, answer_list):
         # All rows are already arranged as necessary
-        self.all_data_for_type_list_list = question_list
+        self.all_data_for_type_list_list = answer_list
 
     @staticmethod
     def get_sudoku_type():
@@ -54,20 +54,20 @@ class SudokuColumns(SudokuContentBase):
     def __init__(self, question_list):
         SudokuContentBase.__init__(self, question_list)
 
-    def set_data(self, question_list):
+    def set_data(self, answer_list):
         # construct a transpose of existing question list
-        self.all_data_for_type_list_list = map(list, zip(*question_list))
+        self.all_data_for_type_list_list = map(list, zip(*answer_list))
 
     @staticmethod
     def get_sudoku_type():
-        return "columns"
+        return "cols"
 
 
 class SudokuBox(SudokuContentBase):
     def __init__(self, question_list):
         SudokuContentBase.__init__(self, question_list)
 
-    def set_data(self, question_list):
+    def set_data(self, answer_list):
         # construct a transpose of existing question list
         temp = []
         all_box = []
@@ -75,20 +75,21 @@ class SudokuBox(SudokuContentBase):
             for col in range(0, 3):
                 for i in range(0, 9):
                     # Iterate through question list to construct a list containing content of a box
-                    temp.append(question_list[int(i / 3) + (row * 3)][i % 3 + (col * 3)])
+                    temp.append(answer_list[int(i / 3) + (row * 3)][i % 3 + (col * 3)])
                 all_box.append(temp)
                 temp = []
         self.all_data_for_type_list_list = all_box
 
     @staticmethod
     def get_sudoku_type():
-        return "boxes"
+        return "box"
 
 
 class SudokuSolver:
     def __init__(self):
         self.answer_list = []
-
+        self.all_type_obj_named_tuple = namedtuple("type_obj", ["rows_obj", "cols_obj", "box_obj"])
+        self.all_type_obj = None
 
     @staticmethod
     def get_question_list():
@@ -106,73 +107,80 @@ class SudokuSolver:
 
         return question_list
 
-    def fill_the_only_missing_number(self, **kwargs):
-        for type_obj in kwargs.values():
-            if type_obj.all_data_for_type_list_list.count(0) == 1:
-                # Proceed further only if there is a entry with 0 in line
-                list_of_numbers = [val for val in temp_list if val]
-                value = list(all_numbers_set - set(list_of_numbers))[0]
-                cindex = temp_list.index(0)
-                set_values_in_all_lists(all_rows, all_cols, all_box, rindex, cindex, value, list_type)
-        type_obj.update_counts()
+    def fill_the_only_missing_number(self):
+        for type_obj in self.all_type_obj:
+            line_type = type_obj.get_sudoku_type()
+            all_numbers_list_list = type_obj.all_data_for_type_list_list
+            for row_index, line_list in enumerate(all_numbers_list_list):
+                if line_list.count(0) == 1:
+                    # Proceed further only if there is one entry with 0 in a line
+                    list_of_numbers = [val for val in line_list if val]
+                    value = list(ALL_NUMBERS_SET - set(list_of_numbers))[0]
+                    col_index = line_list.index(0)
+                    self.update_missing_value_in_all_types(row_index, col_index, value, line_type)
+                    type_obj.update_counts()
     
-    
-    def set_values_in_all_lists(all_rows, all_cols, all_box, rindex, cindex, value, list_type):
+    def update_missing_value_in_all_types(self, row_index, col_index, value, list_type):
         # Updates each of the separate list if any one of the empty row has been correctly
         # filled
+        (rows_obj, cols_obj, box_obj) = self.all_type_obj.rows_obj, self.all_type_obj.cols_obj,\
+                                        self.all_type_obj.box_obj
         if list_type == "rows":
-            index1, index2 = rindex, cindex
-            all_box[int(rindex / 3) * 3 + int(cindex / 3)][(rindex % 3) * 3 + cindex % 3] = value
+            index1, index2 = row_index, col_index
+            box_obj.all_data_for_type_list_list[int(row_index / 3) * 3 + int(col_index / 3)][(row_index % 3) * 3 + col_index % 3] = value
         if list_type == "cols":
-            index1, index2 = cindex, rindex
-            all_box[int(cindex / 3) * 3 + int(rindex / 3)][(cindex % 3) * 3 + rindex % 3] = value
+            index1, index2 = col_index, row_index
+            box_obj.all_data_for_type_list_list[int(col_index / 3) * 3 + int(row_index / 3)][(col_index % 3) * 3 + row_index % 3] = value
         if list_type == "box":
-            all_box[rindex][cindex] = value
-            index1 = (int(rindex / 3) * 3) + cindex / 3
-            index2 = (rindex % 3) * 3 + int(cindex % 3)
+            box_obj.all_data_for_type_list_list[row_index][col_index] = value
+            index1 = (int(row_index / 3) * 3) + col_index / 3
+            index2 = (row_index % 3) * 3 + int(col_index % 3)
     
-        only_number_list[index1][index2] = value
-        all_rows[index1][index2] = value
-        all_cols[index2][index1] = value
-        if list_type == "box":
-            index1 = rindex
-        self.all_values_set_dict[list_type][0][index1] = 1
+        # only_number_list[index1][index2] = value
+        rows_obj.all_data_for_type_list_list[index1][index2] = value
+        cols_obj.all_data_for_type_list_list[index2][index1] = value
+        # if list_type == "box":
+        #     index1 = row_index
 
-    def solve_sudoku(self, **kwargs):
+    def solve_sudoku(self):
         # list_type = type_obj.get_sudoku_type()
-        self.fill_the_only_missing_number(**kwargs)
+        self.fill_the_only_missing_number()
 
-    
-    
-    def print_sudoku(content_list):
-        for val in content_list:
+    def print_sudoku(self):
+        for val in self.all_type_obj.rows_obj:
             print val
         print "\n\n"
 
     @staticmethod
     def get_have_all_lines_been_filled(type_obj):
+        print type_obj.unfilled_entries_list
         return all(type_obj.unfilled_entries_list)
 
-    
-    print_sudoku(all_box)
+    # print_sudoku(all_box)
     # # pdb.set_trace()
     # solve_sudoku()
     # print_sudoku(only_number_list)
 
     def start(self):
+        print "Process Begins"
         question_list = self.get_question_list()
         rows_obj = SudokuRows(question_list)
         cols_obj = SudokuColumns(question_list)
         box_obj = SudokuBox(question_list)
+
+        self.all_type_obj = self.all_type_obj_named_tuple(rows_obj, cols_obj, box_obj)
+
         # self.sudoku_line_type_object_tuple = (rows_obj, cols_obj, box_obj)
+        count = 0
         while True:
+            count += 1
+            print "Try %s" % count
             # Can pass any object to this function, result is expected to be the same
             # Passing row_obj here
             all_lines_filled = self.get_have_all_lines_been_filled(rows_obj)
             if all_lines_filled:
                 break
-            self.solve_sudoku(rows_obj=rows_obj, cols_obj=cols_obj, box_obj=box_obj)
-
+            self.solve_sudoku()
 
 
 def main():
