@@ -24,14 +24,15 @@ class SudokuContentBase:
     def __init__(self, question_list):
         self.unfilled_entries_list = [False]*9
         self.all_data_for_type_list_list = []
-        answer_list = deepcopy(question_list)
-        self.set_data(answer_list)
+        new_question_list = deepcopy(question_list)
+        self.set_data(new_question_list)
+        self.update_counts()
 
-    def set_data(self, answer_list):
+    def set_data(self, new_question_list):
         raise NotImplementedError("set_data method needs to be defined")
 
-    def update_counts(self, content_list):
-        for index, row in enumerate(content_list):
+    def update_counts(self):
+        for index, row in enumerate(self.all_data_for_type_list_list):
             if row.count(0) == 0:
                 # Updates if line of sudoku type is yet to be filled
                 self.unfilled_entries_list[index] = True
@@ -41,9 +42,9 @@ class SudokuRows(SudokuContentBase):
     def __init__(self, question_list):
         SudokuContentBase.__init__(self, question_list)
 
-    def set_data(self, answer_list):
+    def set_data(self, new_question_list):
         # All rows are already arranged as necessary
-        self.all_data_for_type_list_list = answer_list
+        self.all_data_for_type_list_list = new_question_list
 
     @staticmethod
     def get_sudoku_type():
@@ -54,9 +55,9 @@ class SudokuColumns(SudokuContentBase):
     def __init__(self, question_list):
         SudokuContentBase.__init__(self, question_list)
 
-    def set_data(self, answer_list):
+    def set_data(self, new_question_list):
         # construct a transpose of existing question list
-        self.all_data_for_type_list_list = map(list, zip(*answer_list))
+        self.all_data_for_type_list_list = map(list, zip(*new_question_list))
 
     @staticmethod
     def get_sudoku_type():
@@ -67,7 +68,7 @@ class SudokuBox(SudokuContentBase):
     def __init__(self, question_list):
         SudokuContentBase.__init__(self, question_list)
 
-    def set_data(self, answer_list):
+    def set_data(self, new_question_list):
         # construct a transpose of existing question list
         temp = []
         all_box = []
@@ -75,7 +76,7 @@ class SudokuBox(SudokuContentBase):
             for col in range(0, 3):
                 for i in range(0, 9):
                     # Iterate through question list to construct a list containing content of a box
-                    temp.append(answer_list[int(i / 3) + (row * 3)][i % 3 + (col * 3)])
+                    temp.append(new_question_list[int(i / 3) + (row * 3)][i % 3 + (col * 3)])
                 all_box.append(temp)
                 temp = []
         self.all_data_for_type_list_list = all_box
@@ -147,9 +148,10 @@ class SudokuSolver:
         self.fill_the_only_missing_number()
 
     def print_sudoku(self):
-        for val in self.all_type_obj.rows_obj:
+        print "\n\n\n"
+        for val in self.all_type_obj.rows_obj.all_data_for_type_list_list:
             print val
-        print "\n\n"
+        print "\n\n\n"
 
     @staticmethod
     def get_have_all_lines_been_filled(type_obj):
@@ -172,6 +174,7 @@ class SudokuSolver:
 
         # self.sudoku_line_type_object_tuple = (rows_obj, cols_obj, box_obj)
         count = 0
+        self.print_sudoku()
         while True:
             count += 1
             print "Try %s" % count
@@ -179,6 +182,7 @@ class SudokuSolver:
             # Passing row_obj here
             all_lines_filled = self.get_have_all_lines_been_filled(rows_obj)
             if all_lines_filled:
+                self.print_sudoku()
                 break
             self.solve_sudoku()
 
