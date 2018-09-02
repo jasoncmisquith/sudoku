@@ -36,7 +36,6 @@ class SudokuCell:
             self.set_possible_values_for_cell()
 
     def set_possible_values_for_cell(self):
-        import pdb; pdb.set_trace()
         self.possible_row_values = ALL_NUMBERS_SET - set(SudokuRows.ROWS_LIST[self.rows_row_index])
         self.possible_col_values = ALL_NUMBERS_SET - set(SudokuColumns.COLS_LIST[self.cols_row_index])
         self.possible_box_values = ALL_NUMBERS_SET - set(SudokuBox.BOX_LIST[self.box_row_index])
@@ -110,7 +109,7 @@ class SudokuSolver:
         question_list = list()
         content_list = list()
 
-        with open('question.txt', 'r') as fp:
+        with open('question.csv', 'r') as fp:
             question_file_rows_list = fp.readlines()
             for question_file_rows in question_file_rows_list:
                 content_list.append(question_file_rows.split(','))
@@ -147,7 +146,6 @@ class SudokuSolver:
 
     def set_value_if_can_be_identified(self, sudoku_obj):
         if sudoku_obj.value:
-            print str(sudoku_obj.value) + " has already been set"
             return False
 
         sudoku_obj.possible_values_in_cell = sudoku_obj.possible_row_values & sudoku_obj.possible_box_values & sudoku_obj.possible_col_values
@@ -171,9 +169,11 @@ class SudokuSolver:
             sudoku_obj.value = list(sudoku_obj.possible_values_in_cell)[0]
             self.update_missing_value_in_all_types(sudoku_obj)
             return True
+        return False
 
     @staticmethod
     def update_missing_value_in_all_types(sudoku_obj):
+        import pdb; pdb.set_trace()
         SudokuRows.ROWS_LIST[sudoku_obj.rows_row_index][sudoku_obj.rows_col_index] = sudoku_obj.value
         SudokuColumns.COLS_LIST[sudoku_obj.cols_row_index][sudoku_obj.cols_col_index] = sudoku_obj.value
         SudokuBox.BOX_LIST[sudoku_obj.box_row_index][sudoku_obj.box_col_index] = sudoku_obj.value

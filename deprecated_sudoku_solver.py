@@ -97,7 +97,7 @@ class SudokuSolver:
         question_list = list()
         content_list = list()
 
-        with open('question.txt', 'r') as fp:
+        with open('question.csv', 'r') as fp:
             question_file_rows_list = fp.readlines()
             for question_file_rows in question_file_rows_list:
                 content_list.append(question_file_rows.split(','))
