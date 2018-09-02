@@ -1,6 +1,7 @@
 from copy import deepcopy
 from collections import namedtuple
 
+
 print '''
 + - - - - - - - - +
 | | | | | | | | | |
@@ -14,74 +15,60 @@ print '''
 | | | | | | | | | |
 + - - - - - - - - + '''
 
+
 ALL_NUMBERS_SET = {1, 2, 3, 4, 5, 6, 7, 8, 9}
 
 
-class SudokuCell:
-    def __init__(self, value, row_index, col_index):
-        self.possible_values_in_cell = set()
-        self.possible_row_values = set()
-        self.possible_col_values = set()
-        self.possible_box_values = set()
-        self.rows_row_index = row_index
-        self.rows_col_index = col_index
-        self.cols_row_index = col_index
-        self.cols_col_index = row_index
-        self.box_row_index = int(row_index / 3) * 3 + int(col_index / 3)
-        self.box_col_index = (row_index % 3) * 3 + col_index % 3
-        self.value = value
+class SudokuContentBase:
 
-        if not self.value:
-            # value is empty, this cell needs to be solved, find all possibilities
-            self.set_possible_values_for_cell()
+    def __init__(self, question_list):
+        self.unfilled_entries_list = [False]*9
+        self.all_data_for_type_list_list = []
+        new_question_list = deepcopy(question_list)
+        self.set_data(new_question_list)
+        self.update_counts()
 
-    def set_possible_values_for_cell(self):
-        import pdb; pdb.set_trace()
-        self.possible_row_values = ALL_NUMBERS_SET - set(SudokuRows.ROWS_LIST[self.rows_row_index])
-        self.possible_col_values = ALL_NUMBERS_SET - set(SudokuColumns.COLS_LIST[self.cols_row_index])
-        self.possible_box_values = ALL_NUMBERS_SET - set(SudokuBox.BOX_LIST[self.box_row_index])
+    def set_data(self, new_question_list):
+        raise NotImplementedError("set_data method needs to be defined")
+
+    def update_counts(self):
+        for index, row in enumerate(self.all_data_for_type_list_list):
+            if row.count(0) == 0:
+                # Updates if line of sudoku type is yet to be filled
+                self.unfilled_entries_list[index] = True
 
 
-class SudokuRows:
-    ROWS_LIST = []
+class SudokuRows(SudokuContentBase):
+    def __init__(self, question_list):
+        SudokuContentBase.__init__(self, question_list)
 
-    def __init__(self):
-        pass
-
-    @classmethod
-    def set_data(cls, new_question_list):
+    def set_data(self, new_question_list):
         # All rows are already arranged as necessary
-        cls.ROWS_LIST = new_question_list
+        self.all_data_for_type_list_list = new_question_list
 
     @staticmethod
     def get_sudoku_type():
         return "rows"
 
 
-class SudokuColumns:
-    COLS_LIST = []
+class SudokuColumns(SudokuContentBase):
+    def __init__(self, question_list):
+        SudokuContentBase.__init__(self, question_list)
 
-    def __init__(self):
-        pass
-
-    @classmethod
-    def set_data(cls, new_question_list):
+    def set_data(self, new_question_list):
         # construct a transpose of existing question list
-        cls.COLS_LIST = map(list, zip(*new_question_list))
+        self.all_data_for_type_list_list = map(list, zip(*new_question_list))
 
     @staticmethod
     def get_sudoku_type():
         return "cols"
 
 
-class SudokuBox:
-    BOX_LIST = []
+class SudokuBox(SudokuContentBase):
+    def __init__(self, question_list):
+        SudokuContentBase.__init__(self, question_list)
 
-    def __init__(self):
-        pass
-
-    @classmethod
-    def set_data(cls, new_question_list):
+    def set_data(self, new_question_list):
         # construct a transpose of existing question list
         temp = []
         all_box = []
@@ -92,7 +79,7 @@ class SudokuBox:
                     temp.append(new_question_list[int(i / 3) + (row * 3)][i % 3 + (col * 3)])
                 all_box.append(temp)
                 temp = []
-        cls.BOX_LIST = all_box
+        self.all_data_for_type_list_list = all_box
 
     @staticmethod
     def get_sudoku_type():
@@ -121,10 +108,48 @@ class SudokuSolver:
 
         return question_list
 
-    @staticmethod
-    def print_sudoku(sudoku):
+    def fill_the_only_missing_number(self):
+        for type_obj in self.all_type_obj:
+            line_type = type_obj.get_sudoku_type()
+            all_numbers_list_list = type_obj.all_data_for_type_list_list
+            for row_index, line_list in enumerate(all_numbers_list_list):
+                if line_list.count(0) == 1:
+                    # Proceed further only if there is one entry with 0 in a line
+                    list_of_numbers = [val for val in line_list if val]
+                    value = list(ALL_NUMBERS_SET - set(list_of_numbers))[0]
+                    col_index = line_list.index(0)
+                    self.update_missing_value_in_all_types(row_index, col_index, value, line_type)
+                    type_obj.update_counts()
+    
+    def update_missing_value_in_all_types(self, row_index, col_index, value, list_type):
+        # Updates each of the separate list if any one of the empty row has been correctly
+        # filled
+        (rows_obj, cols_obj, box_obj) = self.all_type_obj.rows_obj, self.all_type_obj.cols_obj,\
+                                        self.all_type_obj.box_obj
+        if list_type == "rows":
+            index1, index2 = row_index, col_index
+            box_obj.all_data_for_type_list_list[int(row_index / 3) * 3 + int(col_index / 3)][(row_index % 3) * 3 + col_index % 3] = value
+        if list_type == "cols":
+            index1, index2 = col_index, row_index
+            box_obj.all_data_for_type_list_list[int(col_index / 3) * 3 + int(row_index / 3)][(col_index % 3) * 3 + row_index % 3] = value
+        if list_type == "box":
+            box_obj.all_data_for_type_list_list[row_index][col_index] = value
+            index1 = (int(row_index / 3) * 3) + col_index / 3
+            index2 = (row_index % 3) * 3 + int(col_index % 3)
+    
+        # only_number_list[index1][index2] = value
+        rows_obj.all_data_for_type_list_list[index1][index2] = value
+        cols_obj.all_data_for_type_list_list[index2][index1] = value
+        # if list_type == "box":
+        #     index1 = row_index
+
+    def solve_sudoku(self):
+        # list_type = type_obj.get_sudoku_type()
+        self.fill_the_only_missing_number()
+
+    def print_sudoku(self):
         print "\n\n\n"
-        for val in sudoku:
+        for val in self.all_type_obj.rows_obj.all_data_for_type_list_list:
             print val
         print "\n\n\n"
 
@@ -133,88 +158,33 @@ class SudokuSolver:
         print type_obj.unfilled_entries_list
         return all(type_obj.unfilled_entries_list)
 
-    @staticmethod
-    def initialize_sudoku_cell_obj(question_list_copy):
-        sudoku_obj_list_list = list()
-
-        for row_index, row in enumerate(question_list_copy):
-            sudoku_row_list = list()
-            for col_index, cell_value in enumerate(row):
-                sudoku_cell_obj = SudokuCell(cell_value, row_index, col_index)
-                sudoku_row_list.append(sudoku_cell_obj)
-            sudoku_obj_list_list.append(sudoku_row_list)
-        return sudoku_obj_list_list
-
-    def set_value_if_can_be_identified(self, sudoku_obj):
-        if sudoku_obj.value:
-            print str(sudoku_obj.value) + " has already been set"
-            return False
-
-        sudoku_obj.possible_values_in_cell = sudoku_obj.possible_row_values & sudoku_obj.possible_box_values & sudoku_obj.possible_col_values
-
-        if len(sudoku_obj.possible_row_values) == 1:
-            sudoku_obj.value = list(sudoku_obj.possible_row_values)[0]
-            self.update_missing_value_in_all_types(sudoku_obj)
-            return True
-
-        if len(sudoku_obj.possible_col_values) == 1:
-            sudoku_obj.value = list(sudoku_obj.possible_col_values)[0]
-            self.update_missing_value_in_all_types(sudoku_obj)
-            return True
-
-        if len(sudoku_obj.possible_box_values) == 1:
-            sudoku_obj.value = list(sudoku_obj.possible_box_values)[0]
-            self.update_missing_value_in_all_types(sudoku_obj)
-            return True
-
-        if len(sudoku_obj.possible_values_in_cell) == 1:
-            sudoku_obj.value = list(sudoku_obj.possible_values_in_cell)[0]
-            self.update_missing_value_in_all_types(sudoku_obj)
-            return True
-
-    @staticmethod
-    def update_missing_value_in_all_types(sudoku_obj):
-        SudokuRows.ROWS_LIST[sudoku_obj.rows_row_index][sudoku_obj.rows_col_index] = sudoku_obj.value
-        SudokuColumns.COLS_LIST[sudoku_obj.cols_row_index][sudoku_obj.cols_col_index] = sudoku_obj.value
-        SudokuBox.BOX_LIST[sudoku_obj.box_row_index][sudoku_obj.box_col_index] = sudoku_obj.value
-
-    def result(self, sudoku_obj_list_list):
-        for sudoku_ob_list in sudoku_obj_list_list:
-            answer_row_list = list()
-            for cell_obj in sudoku_ob_list:
-                answer_row_list.append(cell_obj.value)
-            self.answer_list.append(answer_row_list)
+    # print_sudoku(all_box)
+    # # pdb.set_trace()
+    # solve_sudoku()
+    # print_sudoku(only_number_list)
 
     def start(self):
         print "Process Begins"
         question_list = self.get_question_list()
-        question_list_copy = deepcopy(question_list)
+        rows_obj = SudokuRows(question_list)
+        cols_obj = SudokuColumns(question_list)
+        box_obj = SudokuBox(question_list)
 
-        self.print_sudoku(question_list_copy)
+        self.all_type_obj = self.all_type_obj_named_tuple(rows_obj, cols_obj, box_obj)
 
-        # Set logical structures/rules present in a sudoku
-        SudokuRows.set_data(question_list)
-        SudokuColumns.set_data(question_list)
-        SudokuBox.set_data(question_list)
-
-        sudoku_obj_list_list = self.initialize_sudoku_cell_obj(question_list_copy)
-
+        # self.sudoku_line_type_object_tuple = (rows_obj, cols_obj, box_obj)
+        count = 0
+        self.print_sudoku()
         while True:
-            is_value_set_this_iteration = False
-            for sudoku_obj_list in sudoku_obj_list_list:
-                for sudoku_cell_obj in sudoku_obj_list:
-                    is_value_set = self.set_value_if_can_be_identified(sudoku_cell_obj)
-                    if is_value_set:
-                        # a value was successfully set
-                        is_value_set_this_iteration = True
-
-            if not is_value_set_this_iteration:
+            count += 1
+            print "Try %s" % count
+            # Can pass any object to this function, result is expected to be the same
+            # Passing row_obj here
+            all_lines_filled = self.get_have_all_lines_been_filled(rows_obj)
+            if all_lines_filled:
+                self.print_sudoku()
                 break
-
-        self.result(sudoku_obj_list_list)
-        self.print_sudoku(self.answer_list)
-
-        return
+            self.solve_sudoku()
 
 
 def main():
