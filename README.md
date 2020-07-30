@@ -1,2 +1,2 @@
 # sudoku
-Trying to write a code that solves sudoku 9x9
+Trying to write code that solves sudoku 9x9
